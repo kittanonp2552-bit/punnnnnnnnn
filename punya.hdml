@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>Teachable Machine Image Upload</title>
+</head>
+<body>
+
+    <h2>Teachable Machine Image Model (Upload)</h2>
+    
+    <!-- ช่องเลือกไฟล์รูปภาพ -->
+    <input type="file" id="imageUpload" accept="image/*" onchange="predictImage(event)">
+    <br><br>
+    
+    <!-- พื้นที่แสดงรูปภาพตัวอย่าง -->
+    <div>
+        <img id="imagePreview" src="#" alt="Preview" style="max-width: 300px; display: none; border-radius: 8px;" />
+    </div>
+    <br>
+    
+    <!-- พื้นที่แสดงผลลัพธ์การทำนาย -->
+    <div id="labelContainer"></div>
+
+    <!-- โหลดไลบรารี TensorFlow.js และ Teachable Machine -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+    <script type="text/javascript">
+        // ลิงก์ไปยังโฟลเดอร์โมเดลของคุณ (ตรวจสอบว่ามีโฟลเดอร์ชื่อ my_model อยู่ในที่เดียวกัน)
+        const URL = "./my_model/";
+
+        let model, maxPredictions;
+
+        // โหลดโมเดลทันทีเมื่อเปิดหน้าเว็บ
+        async function initModel() {
+            try {
+                const modelURL = URL + "model.json";
+                const metadataURL = URL + "metadata.json";
+
+                model = await tmImage.load(modelURL, metadataURL);
+                maxPredictions = model.getTotalClasses();
+                
+                // สร้างช่องแสดงผลลัพธ์เตรียมไว้
+                const labelContainer = document.getElementById("labelContainer");
+                labelContainer.innerHTML = "";
+                for (let i = 0; i < maxPredictions; i++) {
+                    labelContainer.appendChild(document.createElement("div"));
+                }
+                console.log("โหลดโมเดลสำเร็จ!");
+            } catch (error) {
+                console.error("เกิดข้อผิดพลาดในการโหลดโมเดล:", error);
+                alert("ไม่สามารถโหลดโมเดลได้! กรุณาตรวจสอบว่ารันผ่าน Local Server หรือชื่อโฟลเดอร์ถูกต้องหรือไม่");
+            }
+        }
+
+        // ฟังก์ชันทำงานเมื่อผู้ใช้เลือกรูปภาพ
+        async function predictImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // ตรวจสอบว่าโมเดลโหลดเสร็จหรือยัง
+            if (!model) {
+                await initModel();
+            }
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const img = document.getElementById("imagePreview");
+                img.src = e.target.result;
+                img.style.display = "block";
+
+                // รอให้รูปโหลดลงในแท็ก <img> เสร็จก่อน ค่อยสั่งทำนาย
+                img.onload = async function () {
+                    try {
+                        const prediction = await model.predict(img);
+                        const labelContainer = document.getElementById("labelContainer");
+                        
+                        for (let i = 0; i < maxPredictions; i++) {
+                            const classPrediction = 
+                                prediction[i].className + ": " + (prediction[i].probability * 100).toFixed(2) + "%";
+                            labelContainer.childNodes[i].innerHTML = classPrediction;
+                        }
+                    } catch (err) {
+                        console.error("เกิดข้อผิดพลาดตอนทำนายผล:", err);
+                    }
+                };
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // สั่งให้โหลดโมเดลเตรียมพร้อมทันทีที่หน้าเว็บโหลดเสร็จ
+        window.onload = initModel;
+    </script>
+</body>
+</html>
